@@ -28,12 +28,19 @@ st.title("Painel de Acompanhamento de Faturamento Diário")
 
 def formatar_numero(valor):
 
-    if valor >= 1000000:
-        return f"{valor/1000000:.2f} MM"
-    elif valor >= 1000:
-        return f"{valor/1000:.1f} K"
+    if pd.isna(valor):
+        return "0"
+
+    valor = float(valor)
+
+    if valor >= 1_000_000:
+        return f"{valor/1_000_000:.2f} MM".replace(".", ",")
+
+    elif valor >= 1_000:
+        return f"{valor/1_000:.2f} K".replace(".", ",")
+
     else:
-        return f"{valor:.0f}"
+        return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # =====================================================
 # METAS
@@ -274,6 +281,18 @@ media_diaria=faturamento/num_passados if num_passados>0 else 0
 
 projecao=media_diaria*num_total
 
+# =====================================================
+# MENSAGEM DE ALERTA PROJEÇÃO
+# =====================================================
+
+if projecao >= meta_valor:
+    mensagem = "Mantido o volume atual, a projeção indica: Atingimento da meta ao final do mês."
+    st.success(mensagem)
+
+else:
+    mensagem = "Mantido o volume atual, a projeção indica: Desvio negativo ao final do mês."
+    st.warning(mensagem)
+
 valor_restante=meta_valor-faturamento
 
 necessario_dia=valor_restante/num_restantes if num_restantes>0 else 0
@@ -296,6 +315,7 @@ st.expander(" O que significa Projeção de Fechamento do Mês?").write("""
 - A projeção pode ser menor ou maior que a meta, dependendo do ritmo de vendas.  
 - Por isso, os números podem ser diferentes: um é “faltante” e o outro é “previsto”.
 """)
+
 
 
 # =====================================================
