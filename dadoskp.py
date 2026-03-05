@@ -235,8 +235,8 @@ percentual_kg = (kg_total/meta_kg*100) if meta_kg>0 else 0
 
 k1,k2,k3 = st.columns(3)
 
-k1.metric("KG Vendidos",formatar_numero(kg_total))
-k2.metric("Meta KG",formatar_numero(meta_kg))
+k1.metric("Meta KG",formatar_numero(meta_kg))
+k2.metric("KG Vendidos",formatar_numero(kg_total))
 k3.metric("% da Meta KG",f"{percentual_kg:.1f}%")
 
 # =====================================================
@@ -299,8 +299,8 @@ necessario_dia=valor_restante/num_restantes if num_restantes>0 else 0
 
 p1,p2,p3,p4 = st.columns(4)
 
-p1.metric("Média diária",formatar_numero(media_diaria))
-p2.metric("Projeção fechamento",formatar_numero(projecao))
+p1.metric("Projeção fechamento",formatar_numero(projecao))
+p2.metric("Média diária",formatar_numero(media_diaria))
 p3.metric("Necessário por dia",formatar_numero(necessario_dia))
 p4.metric("Dias úteis restantes",num_restantes)
 
