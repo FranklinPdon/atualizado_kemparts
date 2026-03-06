@@ -363,7 +363,7 @@ top_produtos,
 x="Total",
 y="Descricao",
 orientation="h",
-text="Total"
+text=top_produtos["Total"].apply(formatar_numero)
 )
 
 fig_produtos.update_layout(height=400)
@@ -392,7 +392,7 @@ ranking_vendedores,
 x="Vendedor 1",
 y="Total",
 color="Destaque",
-text="Total",
+text=ranking_vendedores["Total"].apply(formatar_numero),
 color_discrete_map={
 "1º Lugar":"#FFD700",
 "Outros":"#1f77b4"
@@ -423,7 +423,7 @@ ranking_clientes,
 x="Total",
 y="Nome",
 orientation="h",
-text="Total"
+text=ranking_clientes["Total"].apply(formatar_numero)
 )
 
 fig_clientes.update_layout(height=400)
