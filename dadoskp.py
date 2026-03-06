@@ -310,10 +310,9 @@ p4.metric("Dias úteis restantes",num_restantes)
 st.expander(" O que significa Projeção de Fechamento do Mês?").write("""
 ### Explicação Simples
 
-- **Saldo para a Meta**: Quanto ainda falta faturar para atingir a meta total.  
-- **Projeção de Fechamento**: Estimativa de faturamento até o fim do mês, baseada na média diária atual (considerando apenas dias úteis).  
-- A projeção pode ser menor ou maior que a meta, dependendo do ritmo de vendas.  
-- Por isso, os números podem ser diferentes: um é “faltante” e o outro é “previsto”.
+A projeção de fechamento representa uma estimativa de faturamento até o final do mês, considerando o ritmo atual de vendas da Kemparts.
+O cálculo é realizado com base na média de faturamento diário dos dias úteis já realizados, projetando esse comportamento para os dias úteis restantes do período.
+Este indicador tem como objetivo auxiliar o acompanhamento da evolução das vendas e apoiar a tomada de decisão estratégica, podendo variar conforme a performance comercial ao longo do mês.
 """)
 
 
