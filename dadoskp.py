@@ -34,7 +34,7 @@ def formatar_numero(valor):
     valor = float(valor)
 
     if valor >= 1_000_000:
-        return f"{valor/1_000_000:.2f} MM".replace(".", ",")
+        return f"{valor/1_000_000:.3f} MM".replace(".", ",")
 
     elif valor >= 1_000:
         return f"{valor/1_000:.2f} K".replace(".", ",")
@@ -45,6 +45,9 @@ def formatar_numero(valor):
 # =====================================================
 # METAS
 # =====================================================
+
+meta_anual = 43307736.07
+meta_kg_anual = 2270595
 
 metas_faturamento = {
     "Janeiro": 2436225.96,
@@ -214,86 +217,194 @@ for i, mes_meta in enumerate(meses_meta):
         st.markdown(
             f"""
             <div style="text-align:center;border:1px dashed #ccc;padding:6px;font-size:14px">
-            Meta Prevista: <b>{formatar_numero(meta)}</b><br>
-            Realizado: <b>{formatar_numero(realizado)}</b> ({percentual:.2f}%)
+            Meta Prevista: <b>{formatar_numero(meta)}</b>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-
+        # =====================================================
+# INDICADORES GERAIS DE META
 # =====================================================
-# FATURAMENTO DIÁRIO POR MÊS
+
+st.markdown("## Indicadores de Faturamento")
+
+# faturamento realizado
+faturamento_realizado = df_filtrado["Total"].sum()
+
+# meta anual
+meta_total = meta_anual
+
+# se tiver filtro de mês usa meta do mês
+if mes:
+    meta_faturamento = metas_faturamento.get(mes_nome,0)
+else:
+    meta_faturamento = meta_total
+
+# valor restante para meta
+valor_restante = max(meta_faturamento - faturamento_realizado,0)
+
+# =============================
+# CÁLCULO DIAS ÚTEIS
+# =============================
+
+ano = 2026
+
+def calcular_dias_uteis(inicio,fim):
+    datas = pd.date_range(inicio,fim)
+    return sum(1 for d in datas if d.weekday() < 5)
+
+hoje = datetime.today().date()
+
+# se filtrar mês
+if mes:
+
+    mapa_numero_mes = {
+        "Janeiro":1,"Fevereiro":2,"Março":3,"Abril":4,
+        "Maio":5,"Junho":6,"Julho":7,"Agosto":8,
+        "Setembro":9,"Outubro":10,"Novembro":11,"Dezembro":12
+    }
+
+    numero_mes = mapa_numero_mes.get(mes_nome,hoje.month)
+
+    inicio = datetime(ano,numero_mes,1)
+    fim = datetime(ano,numero_mes,calendar.monthrange(ano,numero_mes)[1])
+
+    dias_uteis_restantes = calcular_dias_uteis(hoje,fim)
+
+else:
+
+    inicio = pd.to_datetime(hoje)
+    fim = datetime(ano,12,31)
+
+    dias_uteis_restantes = calcular_dias_uteis(inicio,fim)
+
+# =============================
+# KPIs VISUAIS
+# =============================
+
+col1, col2, col3, col4 = st.columns(4)
+
+card_style = """
+background:#0d6efd;
+padding:22px;
+border-radius:10px;
+text-align:center;
+box-shadow:0 2px 8px rgba(0,0,0,0.15);
+"""
+
+titulo_style = """
+font-size:14px;
+color:#cfe2ff;
+margin-bottom:6px;
+font-weight:500;
+"""
+
+numero_style = """
+font-size:26px;
+color:white;
+font-weight:600;
+margin:0;
+"""
+
+with col1:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">Meta de Faturamento</div>
+        <div style="{numero_style}">{formatar_numero(meta_faturamento)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">Faturamento até o momento</div>
+        <div style="{numero_style}">{formatar_numero(faturamento_realizado)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">Falta para atingir a meta</div>
+        <div style="{numero_style}">{formatar_numero(valor_restante)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">Dias úteis restantes</div>
+        <div style="{numero_style}">{dias_uteis_restantes}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+        # =====================================================
+# FATURAMENTO DIÁRIO
 # =====================================================
 
-st.markdown(f"## Faturamento Diário - {mes_nome} (R$)")
+st.markdown("## Faturamento Diário")
 
-# Filtrar mês selecionado
-df_mes = df_filtrado[df_filtrado["Mes"] == mes_nome]
-
-# Agrupar faturamento por dia
+# agrupar faturamento por dia
 faturamento_dia = (
-    df_mes
-    .groupby(df_mes["DT Emissao"].dt.date)["Total"]
+    df_filtrado
+    .groupby("DT Emissao")["Total"]
     .sum()
     .reset_index()
 )
 
-# Converter para datetime
-faturamento_dia["DT Emissao"] = pd.to_datetime(faturamento_dia["DT Emissao"])
-
-# Ordenar
+# ordenar por data
 faturamento_dia = faturamento_dia.sort_values("DT Emissao")
 
-# Formatar dia (Mar 02)
-faturamento_dia["Dia"] = faturamento_dia["DT Emissao"].dt.strftime("%b %d")
+# criar coluna para gráfico
+faturamento_dia["Data"] = faturamento_dia["DT Emissao"].dt.strftime("%b %d")
 
-# Média diária
+# calcular média diária
 media_diaria = faturamento_dia["Total"].mean()
 
-# Identificar maior faturamento
-max_valor = faturamento_dia["Total"].max()
+# identificar melhor dia
+melhor_dia = faturamento_dia["Total"].max()
 
-# Cores das barras
+# cor das barras
 cores = [
-    "#FFD700" if valor == max_valor else "#1f77b4"
+    "#FFD700" if valor == melhor_dia else "#1f77b4"
     for valor in faturamento_dia["Total"]
 ]
 
-# Criar gráfico
-fig_diario = go.Figure()
+# gráfico
+fig_faturamento = go.Figure()
 
-# Barras
-fig_diario.add_trace(
+# barras
+fig_faturamento.add_trace(
     go.Bar(
-        x=faturamento_dia["Dia"],
+        x=faturamento_dia["Data"],
         y=faturamento_dia["Total"],
         marker_color=cores,
+        name="Faturamento Diário",
         text=faturamento_dia["Total"].apply(formatar_numero),
-        textposition="outside",
-        name="Faturamento Diário"
+        textposition="outside"
     )
 )
 
-# Linha média
-fig_diario.add_trace(
+# linha média
+fig_faturamento.add_trace(
     go.Scatter(
-        x=faturamento_dia["Dia"],
-        y=[media_diaria] * len(faturamento_dia),
+        x=faturamento_dia["Data"],
+        y=[media_diaria]*len(faturamento_dia),
         mode="lines",
         name="Média diária",
-        line=dict(color="red", dash="dash")
+        line=dict(dash="dash")
     )
 )
 
-fig_diario.update_layout(
-    height=420,
-    xaxis_title="Dia",
-    yaxis_title="Faturamento (R$)"
+fig_faturamento.update_layout(
+    height=400,
+    yaxis_title="Faturamento (R$)",
+    xaxis_title="Dia do mês",
+    showlegend=True
 )
 
-st.plotly_chart(fig_diario, use_container_width=True)
-
+st.plotly_chart(fig_faturamento, use_container_width=True)
 # =====================================================
 # KG
 # =====================================================
@@ -302,91 +413,61 @@ st.markdown("## Indicadores de Volume (KG)")
 
 kg_total = df_filtrado["Quantidade"].sum()
 
-meta_kg = metas_kg.get(mes_nome,0)
+# definir meta correta
+if mes:
+    meta_kg = metas_kg.get(mes_nome,0)
+else:
+    meta_kg = meta_kg_anual
 
 percentual_kg = (kg_total/meta_kg*100) if meta_kg>0 else 0
 
-k1,k2,k3 = st.columns(3)
+col1, col2, col3 = st.columns(3)
 
-k1.metric("Meta KG",formatar_numero(meta_kg))
-k2.metric("KG Vendidos",formatar_numero(kg_total))
-k3.metric("% da Meta KG",f"{percentual_kg:.1f}%")
+card_style = """
+background:#0d6efd;
+padding:22px;
+border-radius:10px;
+text-align:center;
+box-shadow:0 2px 8px rgba(0,0,0,0.15);
+"""
 
-# =====================================================
-# PROJEÇÃO DE FECHAMENTO
-# =====================================================
+titulo_style = """
+font-size:14px;
+color:#cfe2ff;
+margin-bottom:6px;
+font-weight:500;
+"""
 
-st.markdown("## Projeção de Fechamento do Mês")
+numero_style = """
+font-size:26px;
+color:white;
+font-weight:600;
+margin:0;
+"""
 
-hoje = datetime.today()
+with col1:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">Meta KG</div>
+        <div style="{numero_style}">{formatar_numero(meta_kg)}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-mapa_numero_mes = {
-"Janeiro":1,"Fevereiro":2,"Março":3,"Abril":4,
-"Maio":5,"Junho":6,"Julho":7,"Agosto":8,
-"Setembro":9,"Outubro":10,"Novembro":11,"Dezembro":12
-}
+with col2:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">KG Vendidos</div>
+        <div style="{numero_style}">{formatar_numero(kg_total)}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-numero_mes = mapa_numero_mes.get(mes_nome,hoje.month)
-
-ano = hoje.year
-
-primeiro_dia = datetime(ano,numero_mes,1)
-
-ultimo_dia = datetime(
-ano,
-numero_mes,
-calendar.monthrange(ano,numero_mes)[1]
-)
-
-datas_mes = pd.date_range(primeiro_dia,ultimo_dia)
-
-dias_uteis = datas_mes[datas_mes.weekday<5]
-
-dias_passados = dias_uteis[dias_uteis<=hoje]
-
-dias_restantes = dias_uteis[dias_uteis>hoje]
-
-num_passados=len(dias_passados)
-num_restantes=len(dias_restantes)
-num_total=len(dias_uteis)
-
-media_diaria=faturamento/num_passados if num_passados>0 else 0
-
-projecao=media_diaria*num_total
-
-# =====================================================
-# MENSAGEM DE ALERTA PROJEÇÃO
-# =====================================================
-
-if projecao >= meta_valor:
-    mensagem = "Mantido o volume atual, a projeção indica: Atingimento da meta ao final do mês."
-    st.success(mensagem)
-
-else:
-    mensagem = "Mantido o volume atual, a projeção indica: Desvio negativo ao final do mês."
-    st.warning(mensagem)
-
-valor_restante=meta_valor-faturamento
-
-necessario_dia=valor_restante/num_restantes if num_restantes>0 else 0
-
-p1,p2,p3,p4 = st.columns(4)
-
-p1.metric("Projeção fechamento",formatar_numero(projecao))
-p2.metric("Média diária",formatar_numero(media_diaria))
-p3.metric("Necessário por dia",formatar_numero(necessario_dia))
-p4.metric("Dias úteis restantes",num_restantes)
-
-# =====================================================
-# EXPLICAÇÃO - PROJEÇÃO DE FECHAMENTO
-# =====================================================
-st.expander(" O que significa Projeção de Fechamento do Mês?").write("""
-### Explicação Simples
-
-A projeção de fechamento representa uma estimativa de faturamento até o final do mês, considerando o ritmo atual de vendas da Kemparts.
-O cálculo é realizado com base na média de faturamento diário dos dias úteis já realizados, projetando esse comportamento para os dias úteis restantes do período.
-Este indicador tem como objetivo auxiliar o acompanhamento da evolução das vendas e apoiar a tomada de decisão estratégica, podendo variar conforme a performance comercial ao longo do mês.
-""")
+with col3:
+    st.markdown(f"""
+    <div style="{card_style}">
+        <div style="{titulo_style}">% da Meta KG</div>
+        <div style="{numero_style}">{percentual_kg:.1f}%</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 
