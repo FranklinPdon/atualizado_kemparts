@@ -557,6 +557,81 @@ fig_vendedores.update_layout(height=450,showlegend=False)
 
 st.plotly_chart(fig_vendedores,use_container_width=True)
 
+
+# =====================================================
+# FATURAMENTO DIÁRIO POR VENDEDOR
+# =====================================================
+
+st.markdown("## Faturamento Diário por Vendedor")
+
+# Agrupar dados
+faturamento_vendedor_dia = (
+    df_filtrado
+    .groupby(["DT Emissao", "Vendedor 1"])["Total"]
+    .sum()
+    .reset_index()
+)
+
+# Ordenar por data
+faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("DT Emissao")
+
+# Criar coluna dia
+faturamento_vendedor_dia["Dia"] = faturamento_vendedor_dia["DT Emissao"].dt.day
+
+# Total por dia
+total_dia = (
+    faturamento_vendedor_dia
+    .groupby("Dia")["Total"]
+    .sum()
+    .reset_index()
+)
+
+# =====================================================
+# GRÁFICO
+# =====================================================
+
+import plotly.graph_objects as go
+
+fig = go.Figure()
+
+# Barras empilhadas por vendedor
+vendedores = faturamento_vendedor_dia["Vendedor 1"].unique()
+
+for vendedor in vendedores:
+    df_vend = faturamento_vendedor_dia[faturamento_vendedor_dia["Vendedor 1"] == vendedor]
+
+    fig.add_bar(
+        x=df_vend["Dia"],
+        y=df_vend["Total"],
+        name=vendedor,
+        text=df_vend["Total"].apply(formatar_numero),
+        textposition="inside"
+    )
+
+# Linha do total do dia
+fig.add_trace(
+    go.Scatter(
+        x=total_dia["Dia"],
+        y=total_dia["Total"],
+        mode="lines+markers+text",
+        name="Total do Dia",
+        text=total_dia["Total"].apply(formatar_numero),
+        textposition="top center",
+        line=dict(width=3)
+    )
+)
+
+fig.update_layout(
+    barmode="stack",
+    height=500,
+    xaxis_title="Dia do mês",
+    yaxis_title="Faturamento (R$)",
+    legend_title="Vendedor",
+    hovermode="x unified"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
 # =====================================================
 # TOP CLIENTES
 # =====================================================
