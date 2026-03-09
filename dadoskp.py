@@ -221,6 +221,79 @@ for i, mes_meta in enumerate(meses_meta):
             unsafe_allow_html=True
         )
 
+
+# =====================================================
+# FATURAMENTO DIÁRIO POR MÊS
+# =====================================================
+
+st.markdown(f"## Faturamento Diário - {mes_nome} (R$)")
+
+# Filtrar mês selecionado
+df_mes = df_filtrado[df_filtrado["Mes"] == mes_nome]
+
+# Agrupar faturamento por dia
+faturamento_dia = (
+    df_mes
+    .groupby(df_mes["DT Emissao"].dt.date)["Total"]
+    .sum()
+    .reset_index()
+)
+
+# Converter para datetime
+faturamento_dia["DT Emissao"] = pd.to_datetime(faturamento_dia["DT Emissao"])
+
+# Ordenar
+faturamento_dia = faturamento_dia.sort_values("DT Emissao")
+
+# Formatar dia (Mar 02)
+faturamento_dia["Dia"] = faturamento_dia["DT Emissao"].dt.strftime("%b %d")
+
+# Média diária
+media_diaria = faturamento_dia["Total"].mean()
+
+# Identificar maior faturamento
+max_valor = faturamento_dia["Total"].max()
+
+# Cores das barras
+cores = [
+    "#FFD700" if valor == max_valor else "#1f77b4"
+    for valor in faturamento_dia["Total"]
+]
+
+# Criar gráfico
+fig_diario = go.Figure()
+
+# Barras
+fig_diario.add_trace(
+    go.Bar(
+        x=faturamento_dia["Dia"],
+        y=faturamento_dia["Total"],
+        marker_color=cores,
+        text=faturamento_dia["Total"].apply(formatar_numero),
+        textposition="outside",
+        name="Faturamento Diário"
+    )
+)
+
+# Linha média
+fig_diario.add_trace(
+    go.Scatter(
+        x=faturamento_dia["Dia"],
+        y=[media_diaria] * len(faturamento_dia),
+        mode="lines",
+        name="Média diária",
+        line=dict(color="red", dash="dash")
+    )
+)
+
+fig_diario.update_layout(
+    height=420,
+    xaxis_title="Dia",
+    yaxis_title="Faturamento (R$)"
+)
+
+st.plotly_chart(fig_diario, use_container_width=True)
+
 # =====================================================
 # KG
 # =====================================================
