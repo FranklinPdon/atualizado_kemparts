@@ -223,7 +223,7 @@ for i, mes_meta in enumerate(meses_meta):
             unsafe_allow_html=True
         )
 
-        # =====================================================
+# =====================================================
 # INDICADORES GERAIS DE META
 # =====================================================
 
@@ -318,7 +318,7 @@ with col1:
 with col2:
     st.markdown(f"""
     <div style="{card_style}">
-        <div style="{titulo_style}">Faturamento até o momento</div>
+        <div style="{titulo_style}">Faturado</div>
         <div style="{numero_style}">{formatar_numero(faturamento_realizado)}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -326,7 +326,7 @@ with col2:
 with col3:
     st.markdown(f"""
     <div style="{card_style}">
-        <div style="{titulo_style}">Falta para atingir a meta</div>
+        <div style="{titulo_style}">Provisão Faturamento</div>
         <div style="{numero_style}">{formatar_numero(valor_restante)}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -334,7 +334,7 @@ with col3:
 with col4:
     st.markdown(f"""
     <div style="{card_style}">
-        <div style="{titulo_style}">Dias úteis restantes</div>
+        <div style="{titulo_style}">Dias a Faturar</div>
         <div style="{numero_style}">{dias_uteis_restantes}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -636,7 +636,7 @@ st.plotly_chart(fig, use_container_width=True)
 # TOP CLIENTES
 # =====================================================
 
-st.markdown("## Clientes que mais compraram no mês")
+st.markdown("## Principais Clientes")
 
 ranking_clientes = (
 df_filtrado
