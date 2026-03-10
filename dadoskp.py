@@ -559,26 +559,42 @@ st.plotly_chart(fig_vendedores,use_container_width=True)
 
 
 # =====================================================
-# FATURAMENTO DIÁRIO POR VENDEDOR
+# FATURAMENTO DIÁRIO POR VENDEDOR (APENAS DIAS ÚTEIS)
 # =====================================================
 
 st.markdown("## Faturamento Diário por Vendedor")
 
-# Agrupar dados
+df_vendas = df_filtrado.copy()
+
+# remover finais de semana
+df_vendas = df_vendas[df_vendas["DT Emissao"].dt.weekday < 5]
+
+# feriados nacionais
+feriados = pd.to_datetime([
+"2026-01-01","2026-02-16","2026-02-17","2026-04-03",
+"2026-04-21","2026-05-01","2026-06-04","2026-09-07",
+"2026-10-12","2026-11-02","2026-11-15","2026-12-25"
+])
+
+df_vendas = df_vendas[~df_vendas["DT Emissao"].isin(feriados)]
+
+# criar coluna dia do mês
+df_vendas["Dia"] = df_vendas["DT Emissao"].dt.day
+
+# agrupar vendas
 faturamento_vendedor_dia = (
-    df_filtrado
-    .groupby(["DT Emissao", "Vendedor 1"])["Total"]
+    df_vendas
+    .groupby(["Dia","Vendedor 1"])["Total"]
     .sum()
     .reset_index()
 )
 
-# Ordenar por data
-faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("DT Emissao")
+# ordenar dias
+faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("Dia")
 
-# Criar coluna dia
-faturamento_vendedor_dia["Dia"] = faturamento_vendedor_dia["DT Emissao"].dt.day
+# total por dia (somente dias existentes no gráfico)
+dias_validos = faturamento_vendedor_dia["Dia"].unique()
 
-# Total por dia
 total_dia = (
     faturamento_vendedor_dia
     .groupby("Dia")["Total"]
@@ -586,37 +602,41 @@ total_dia = (
     .reset_index()
 )
 
-# =====================================================
-# GRÁFICO
-# =====================================================
+total_dia = total_dia[total_dia["Dia"].isin(dias_validos)]
 
-import plotly.graph_objects as go
+# ==========================
+# GRÁFICO
+# ==========================
 
 fig = go.Figure()
 
-# Barras empilhadas por vendedor
-vendedores = faturamento_vendedor_dia["Vendedor 1"].unique()
+# ordenar dias corretamente
+faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("Dia")
 
-for vendedor in vendedores:
-    df_vend = faturamento_vendedor_dia[faturamento_vendedor_dia["Vendedor 1"] == vendedor]
+# lista de dias em ordem
+ordem_dias = sorted(faturamento_vendedor_dia["Dia"].unique())
+
+for vendedor in faturamento_vendedor_dia["Vendedor 1"].unique():
+
+    df_v = faturamento_vendedor_dia[
+        faturamento_vendedor_dia["Vendedor 1"] == vendedor
+    ].sort_values("Dia")
 
     fig.add_bar(
-        x=df_vend["Dia"],
-        y=df_vend["Total"],
+        x=df_v["Dia"],
+        y=df_v["Total"],
         name=vendedor,
-        text=df_vend["Total"].apply(formatar_numero),
+        text=df_v["Total"].apply(formatar_numero),
         textposition="inside"
     )
 
-# Linha do total do dia
+# linha total do dia
 fig.add_trace(
     go.Scatter(
         x=total_dia["Dia"],
         y=total_dia["Total"],
-        mode="lines+markers+text",
+        mode="lines+markers",
         name="Total do Dia",
-        text=total_dia["Total"].apply(formatar_numero),
-        textposition="top center",
         line=dict(width=3)
     )
 )
@@ -627,7 +647,12 @@ fig.update_layout(
     xaxis_title="Dia do mês",
     yaxis_title="Faturamento (R$)",
     legend_title="Vendedor",
-    hovermode="x unified"
+    hovermode="x unified",
+    xaxis=dict(
+        type="category",
+        categoryorder="array",
+        categoryarray=ordem_dias
+    )
 )
 
 st.plotly_chart(fig, use_container_width=True)
