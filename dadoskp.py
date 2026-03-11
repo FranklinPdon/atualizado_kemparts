@@ -55,6 +55,92 @@ metas_faturamento = {
     "Março": 3186391.65
 }
 
+# =====================================================
+# METAS POR VENDEDOR
+# =====================================================
+
+metas_vendedores = {
+
+"OD":{
+"Janeiro":478646.48,"Fevereiro":841806.88,"Março":789901.26,
+"Abril":885792.32,"Maio":954052.52,"Junho":918426.65,
+"Julho":846802.13,"Agosto":1005106.28,"Setembro":917165.83,
+"Outubro":885742.76,"Novembro":963445.45,"Dezembro":579024.51
+},
+
+"JF":{
+"Janeiro":458428.74,"Fevereiro":760267.39,"Março":853897.07,
+"Abril":772218.21,"Maio":983467.90,"Junho":888066.93,
+"Julho":1004884.24,"Agosto":1000867.24,"Setembro":988439.01,
+"Outubro":827237.38,"Novembro":1005616.93,"Dezembro":516517.88
+},
+
+"DK":{
+"Janeiro":939131.49,"Fevereiro":879804.44,"Março":830970.87,
+"Abril":876621.17,"Maio":768705.53,"Junho":1042012.70,
+"Julho":990172.09,"Agosto":1069446.28,"Setembro":980568.86,
+"Outubro":975097.08,"Novembro":876107.98,"Dezembro":922547.74
+},
+
+"GP":{
+"Janeiro":141688.30,"Fevereiro":116539.16,"Março":227075.93,
+"Abril":143722.16,"Maio":147879.59,"Junho":193632.74,
+"Julho":162163.57,"Agosto":132265.86,"Setembro":224101.73,
+"Outubro":116539.16,"Novembro":199606.49,"Dezembro":146927.70
+},
+
+"LT":{
+"Janeiro":418330.95,"Fevereiro":594729.74,"Março":484546.52,
+"Abril":931382.16,"Maio":909178.89,"Junho":1328249.34,
+"Julho":912851.25,"Agosto":979405.49,"Setembro":1165814.74,
+"Outubro":846404.19,"Novembro":859104.38,"Dezembro":648587.81
+}
+
+}
+
+# =====================================================
+# METAS KG POR VENDEDOR
+# =====================================================
+
+metas_kg_vendedores = {
+
+"OD":{
+"Janeiro":23995,"Fevereiro":41415,"Março":40765,
+"Abril":44220,"Maio":49110,"Junho":45580,
+"Julho":43760,"Agosto":50740,"Setembro":47260,
+"Outubro":44470,"Novembro":49550,"Dezembro":28960
+},
+
+"JF":{
+"Janeiro":20370,"Fevereiro":33235,"Março":37010,
+"Abril":34665,"Maio":39450,"Junho":40425,
+"Julho":44160,"Agosto":43150,"Setembro":43230,
+"Outubro":36280,"Novembro":41560,"Dezembro":22880
+},
+
+"DK":{
+"Janeiro":58345,"Fevereiro":57965,"Março":54235,
+"Abril":61095,"Maio":49365,"Junho":68135,
+"Julho":62700,"Agosto":69037,"Setembro":61030,
+"Outubro":65165,"Novembro":55805,"Dezembro":62505
+},
+
+"GP":{
+"Janeiro":9675,"Fevereiro":9045,"Março":14891,
+"Abril":10095,"Maio":9995,"Junho":13795,
+"Julho":11095,"Agosto":10291,"Setembro":14695,
+"Outubro":9045,"Novembro":12645,"Dezembro":11291
+},
+
+"LT":{
+"Janeiro":14285,"Fevereiro":22770,"Março":20470,
+"Abril":41120,"Maio":42920,"Junho":62800,
+"Julho":41130,"Agosto":43290,"Setembro":60260,
+"Outubro":39850,"Novembro":41810,"Dezembro":31710
+}
+
+}
+
 metas_kg = {
     "Janeiro": 126670,
     "Fevereiro": 164430,
@@ -215,13 +301,14 @@ for i, mes_meta in enumerate(meses_meta):
         st.plotly_chart(fig, use_container_width=True, key=f"velocimetro_{mes_meta}")
 
         st.markdown(
-            f"""
-            <div style="text-align:center;border:1px dashed #ccc;padding:6px;font-size:14px">
-            Meta Prevista: <b>{formatar_numero(meta)}</b>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    f"""
+    <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
+        Meta Prevista: <b>{formatar_numero(meta)}</b><br>
+        Realizado: <b>{formatar_numero(realizado)}</b>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =====================================================
 # INDICADORES GERAIS DE META
@@ -339,7 +426,7 @@ with col4:
     </div>
     """, unsafe_allow_html=True)
 
-        # =====================================================
+# =====================================================
 # FATURAMENTO DIÁRIO
 # =====================================================
 
@@ -472,36 +559,64 @@ with col3:
 
 
 # =====================================================
-# EVOLUÇÃO FATURAMENTO
+# EVOLUÇÃO FATURAMENTO (ORÇADO VS REALIZADO)
 # =====================================================
 
 st.markdown("## Evolução de Faturamento Mensal")
 
-evolucao = df.groupby("Mes")["Total"].sum().reset_index()
+realizado = (
+    df
+    .groupby("Mes")["Total"]
+    .sum()
+    .reset_index()
+)
 
-ordem_meses=[
+realizado["Orçado"] = realizado["Mes"].map(metas_faturamento)
+
+ordem_meses = [
 "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
 "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
-evolucao["Mes"]=pd.Categorical(evolucao["Mes"],categories=ordem_meses,ordered=True)
-
-evolucao=evolucao.sort_values("Mes")
-
-fig_linha = px.line(
-    evolucao,
-    x="Mes",
-    y="Total",
-    markers=True
+realizado["Mes"] = pd.Categorical(
+    realizado["Mes"],
+    categories=ordem_meses,
+    ordered=True
 )
 
-st.plotly_chart(fig_linha,use_container_width=True)
+realizado = realizado.sort_values("Mes")
+
+fig = go.Figure()
+
+fig.add_bar(
+    x=realizado["Mes"],
+    y=realizado["Total"],
+    name="Realizado",
+    text=realizado["Total"].apply(formatar_numero),
+    textposition="outside"
+)
+
+fig.add_bar(
+    x=realizado["Mes"],
+    y=realizado["Orçado"],
+    name="Orçado",
+    text=realizado["Orçado"].apply(formatar_numero),
+    textposition="outside"
+)
+
+fig.update_layout(
+    barmode="group",
+    height=450,
+    yaxis_title="Faturamento (R$)"
+)
+
+st.plotly_chart(fig,use_container_width=True)
 
 # =====================================================
 # TOP PRODUTOS
 # =====================================================
 
-st.markdown("## Produtos com maior performance")
+st.markdown("## Faturamento por Produto")
 
 top_produtos = (
 df_filtrado
@@ -525,137 +640,152 @@ fig_produtos.update_layout(height=400)
 st.plotly_chart(fig_produtos,use_container_width=True)
 
 # =====================================================
-# RANKING VENDEDORES
+# VOLUME POR PRODUTO
+# =====================================================
+
+st.markdown("## Volume por Produto (KG)")
+
+top_produtos_kg = (
+    df_filtrado
+    .groupby("Descricao")["Quantidade"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(9)
+    .reset_index()
+)
+
+fig_produtos_kg = px.bar(
+    top_produtos_kg,
+    x="Quantidade",
+    y="Descricao",
+    orientation="h",
+    text=top_produtos_kg["Quantidade"].apply(formatar_numero)
+)
+
+fig_produtos_kg.update_layout(height=400)
+
+st.plotly_chart(fig_produtos_kg,use_container_width=True)
+
+# =====================================================
+# RANKING VENDEDORES (REALIZADO VS META)
 # =====================================================
 
 st.markdown("## Ranking de Vendedores")
 
 ranking_vendedores = (
-df_filtrado
-.groupby("Vendedor 1")["Total"]
-.sum()
-.sort_values(ascending=False)
-.reset_index()
+    df_filtrado
+    .groupby("Vendedor 1")["Total"]
+    .sum()
+    .reset_index()
 )
 
-ranking_vendedores["Destaque"]="Outros"
-ranking_vendedores.loc[0,"Destaque"]="1º Lugar"
+metas_lista = []
 
-fig_vendedores = px.bar(
-ranking_vendedores,
-x="Vendedor 1",
-y="Total",
-color="Destaque",
-text=ranking_vendedores["Total"].apply(formatar_numero),
-color_discrete_map={
-"1º Lugar":"#FFD700",
-"Outros":"#1f77b4"
-}
+for vendedor in ranking_vendedores["Vendedor 1"]:
+
+    if vendedor in metas_vendedores:
+
+        if mes:
+            meta_vendedor = metas_vendedores[vendedor].get(mes_nome,0)
+        else:
+            meta_vendedor = sum(metas_vendedores[vendedor].values())
+
+    else:
+        meta_vendedor = 0
+
+    metas_lista.append(meta_vendedor)
+
+ranking_vendedores["Meta"] = metas_lista
+
+ranking_vendedores = ranking_vendedores.sort_values("Total",ascending=False)
+
+fig_vendedores = go.Figure()
+
+# realizado
+fig_vendedores.add_bar(
+    x=ranking_vendedores["Vendedor 1"],
+    y=ranking_vendedores["Total"],
+    name="Realizado",
+    text=ranking_vendedores["Total"].apply(formatar_numero),
+    textposition="outside"
 )
 
-fig_vendedores.update_layout(height=450,showlegend=False)
+# meta
+fig_vendedores.add_bar(
+    x=ranking_vendedores["Vendedor 1"],
+    y=ranking_vendedores["Meta"],
+    name="Meta",
+    text=ranking_vendedores["Meta"].apply(formatar_numero),
+    textposition="outside"
+)
+
+fig_vendedores.update_layout(
+    barmode="group",
+    height=450,
+    yaxis_title="Faturamento (R$)"
+)
 
 st.plotly_chart(fig_vendedores,use_container_width=True)
 
-
 # =====================================================
-# FATURAMENTO DIÁRIO POR VENDEDOR (APENAS DIAS ÚTEIS)
+# VOLUME POR VENDEDOR (KG VS META)
 # =====================================================
 
-st.markdown("## Faturamento Diário por Vendedor")
+st.markdown("## Volume por Vendedor (KG)")
 
-df_vendas = df_filtrado.copy()
-
-# remover finais de semana
-df_vendas = df_vendas[df_vendas["DT Emissao"].dt.weekday < 5]
-
-# feriados nacionais
-feriados = pd.to_datetime([
-"2026-01-01","2026-02-16","2026-02-17","2026-04-03",
-"2026-04-21","2026-05-01","2026-06-04","2026-09-07",
-"2026-10-12","2026-11-02","2026-11-15","2026-12-25"
-])
-
-df_vendas = df_vendas[~df_vendas["DT Emissao"].isin(feriados)]
-
-# criar coluna dia do mês
-df_vendas["Dia"] = df_vendas["DT Emissao"].dt.day
-
-# agrupar vendas
-faturamento_vendedor_dia = (
-    df_vendas
-    .groupby(["Dia","Vendedor 1"])["Total"]
+volume_vendedores = (
+    df_filtrado
+    .groupby("Vendedor 1")["Quantidade"]
     .sum()
     .reset_index()
 )
 
-# ordenar dias
-faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("Dia")
+metas_lista = []
 
-# total por dia (somente dias existentes no gráfico)
-dias_validos = faturamento_vendedor_dia["Dia"].unique()
+for vendedor in volume_vendedores["Vendedor 1"]:
 
-total_dia = (
-    faturamento_vendedor_dia
-    .groupby("Dia")["Total"]
-    .sum()
-    .reset_index()
+    if vendedor in metas_kg_vendedores:
+
+        if mes:
+            meta_vendedor = metas_kg_vendedores[vendedor].get(mes_nome,0)
+        else:
+            meta_vendedor = sum(metas_kg_vendedores[vendedor].values())
+
+    else:
+        meta_vendedor = 0
+
+    metas_lista.append(meta_vendedor)
+
+volume_vendedores["Meta KG"] = metas_lista
+
+volume_vendedores = volume_vendedores.sort_values("Quantidade",ascending=False)
+
+fig_volume = go.Figure()
+
+fig_volume.add_bar(
+    x=volume_vendedores["Vendedor 1"],
+    y=volume_vendedores["Quantidade"],
+    name="KG Vendido",
+    text=volume_vendedores["Quantidade"].apply(formatar_numero),
+    textposition="outside"
 )
 
-total_dia = total_dia[total_dia["Dia"].isin(dias_validos)]
-
-# ==========================
-# GRÁFICO
-# ==========================
-
-fig = go.Figure()
-
-# ordenar dias corretamente
-faturamento_vendedor_dia = faturamento_vendedor_dia.sort_values("Dia")
-
-# lista de dias em ordem
-ordem_dias = sorted(faturamento_vendedor_dia["Dia"].unique())
-
-for vendedor in faturamento_vendedor_dia["Vendedor 1"].unique():
-
-    df_v = faturamento_vendedor_dia[
-        faturamento_vendedor_dia["Vendedor 1"] == vendedor
-    ].sort_values("Dia")
-
-    fig.add_bar(
-        x=df_v["Dia"],
-        y=df_v["Total"],
-        name=vendedor,
-        text=df_v["Total"].apply(formatar_numero),
-        textposition="inside"
-    )
-
-# linha total do dia
-fig.add_trace(
-    go.Scatter(
-        x=total_dia["Dia"],
-        y=total_dia["Total"],
-        mode="lines+markers",
-        name="Total do Dia",
-        line=dict(width=3)
-    )
+fig_volume.add_bar(
+    x=volume_vendedores["Vendedor 1"],
+    y=volume_vendedores["Meta KG"],
+    name="Meta KG",
+    text=volume_vendedores["Meta KG"].apply(formatar_numero),
+    textposition="outside"
 )
 
-fig.update_layout(
-    barmode="stack",
-    height=500,
-    xaxis_title="Dia do mês",
-    yaxis_title="Faturamento (R$)",
-    legend_title="Vendedor",
-    hovermode="x unified",
-    xaxis=dict(
-        type="category",
-        categoryorder="array",
-        categoryarray=ordem_dias
-    )
+fig_volume.update_layout(
+    barmode="group",
+    height=450,
+    yaxis_title="Volume (KG)"
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig_volume,use_container_width=True)
+
 
 # =====================================================
 # TOP CLIENTES
@@ -683,6 +813,33 @@ text=ranking_clientes["Total"].apply(formatar_numero)
 fig_clientes.update_layout(height=400)
 
 st.plotly_chart(fig_clientes,use_container_width=True)
+
+# =====================================================
+# VOLUME POR CLIENTE
+# =====================================================
+
+st.markdown("## Volume por Cliente (KG)")
+
+clientes_kg = (
+    df_filtrado
+    .groupby("Nome")["Quantidade"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(9)
+    .reset_index()
+)
+
+fig_clientes_kg = px.bar(
+    clientes_kg,
+    x="Quantidade",
+    y="Nome",
+    orientation="h",
+    text=clientes_kg["Quantidade"].apply(formatar_numero)
+)
+
+fig_clientes_kg.update_layout(height=400)
+
+st.plotly_chart(fig_clientes_kg,use_container_width=True)
 
 # =====================================================
 # FATURAMENTO POR ESTADO
