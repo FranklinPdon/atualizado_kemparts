@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import calendar
 import plotly.express as px
+
 import plotly.graph_objects as go
 
 # =====================================================
@@ -34,10 +35,12 @@ def formatar_numero(valor):
     valor = float(valor)
 
     if valor >= 1_000_000:
-        return f"{valor/1_000_000:.3f} MM".replace(".", ",")
+        valor_mm = int((valor / 1_000_000) * 1000) / 1000
+        return f"{valor_mm:,.3f}".replace(",", "X").replace(".", ",").replace("X", ".") + " MM"
 
     elif valor >= 1_000:
-        return f"{valor/1_000:.2f} K".replace(".", ",")
+        valor_k = int((valor / 1_000) * 100) / 100
+        return f"{valor_k:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " K"
 
     else:
         return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -52,7 +55,16 @@ meta_kg_anual = 2270595
 metas_faturamento = {
     "Janeiro": 2436225.96,
     "Fevereiro": 3193147.61,
-    "Março": 3186391.65
+    "Março": 3186391.65,
+    "Abril": 3609736.02,
+    "Maio": 3763284.43,
+    "Junho": 4370388.36,
+    "Julho": 3916873.28,
+    "Agosto": 4187091.15,
+    "Setembro": 4276090.17,
+    "Outubro": 3651020.57,
+    "Novembro": 3903881.23,
+    "Dezembro": 2813605.64
 }
 
 # =====================================================
@@ -262,54 +274,94 @@ meta_valor = metas_faturamento.get(mes_nome,0)
 
 st.markdown("## Atingimento de Meta por Mês")
 
-meses_meta = ["Janeiro","Fevereiro","Março"]
+meses_meta = pd.date_range(start="2026-01-01", end="2026-12-01", freq="MS")
 
-colunas = st.columns(3)
+meses_meta = [
+    mapa_meses[data.strftime("%B")]
+    for data in meses_meta
+]
 
-for i, mes_meta in enumerate(meses_meta):
+# =========================
+# CONTROLE DE MESES VISÍVEIS
+# =========================
 
-    meta = metas_faturamento.get(mes_meta,0)
+if "meses_visiveis" not in st.session_state:
+    st.session_state.meses_visiveis = 3
 
-    realizado = df_filtrado[df_filtrado["Mes"]==mes_meta]["Total"].sum()
+# quantidade total
+total_meses = len(meses_meta)
 
-    percentual = (realizado/meta*100) if meta>0 else 0
+# meses que vão aparecer
+meses_para_mostrar = meses_meta[:st.session_state.meses_visiveis]
 
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=percentual,
-        number={'suffix': "%",'font':{'size':28}},
-        gauge={
-            'axis':{'range':[0,120]},
-            'bar':{'color':"#2ca02c" if percentual>=100 else "#ff7f0e"},
-            'steps':[
-                {'range':[0,60],'color':"#f2f2f2"},
-                {'range':[60,90],'color':"#e6e6e6"},
-                {'range':[90,120],'color':"#d9d9d9"}
-            ]
-        }
-    ))
+# =========================
+# VELOCÍMETROS
+# =========================
 
-    fig.update_layout(height=200,margin=dict(t=20,b=0,l=0,r=0))
+for i in range(0, len(meses_para_mostrar), 3):
+    cols = st.columns(3)
 
-    with colunas[i]:
+    for j, mes_meta in enumerate(meses_para_mostrar[i:i+3]):
 
-        st.markdown(
-            f"<h4 style='text-align:center'>{mes_meta}</h4>",
-            unsafe_allow_html=True
-        )
+        meta = metas_faturamento.get(mes_meta, 0)
+        realizado = df_filtrado[df_filtrado["Mes"] == mes_meta]["Total"].sum()
+        percentual = (realizado / meta * 100) if meta > 0 else 0
 
-        st.plotly_chart(fig, use_container_width=True, key=f"velocimetro_{mes_meta}")
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=percentual,
+            number={'suffix': "%", 'font': {'size': 28}},
+            gauge={
+                'axis': {'range': [0, 120]},
+                'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
+                'steps': [
+                    {'range': [0, 60], 'color': "#f2f2f2"},
+                    {'range': [60, 90], 'color': "#e6e6e6"},
+                    {'range': [90, 120], 'color': "#d9d9d9"}
+                ]
+            }
+        ))
 
-        st.markdown(
-    f"""
-    <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
-        Meta Prevista: <b>{formatar_numero(meta)}</b><br>
-        Realizado: <b>{formatar_numero(realizado)}</b>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+        fig.update_layout(height=200, margin=dict(t=20, b=0, l=0, r=0))
 
+        with cols[j]:
+            st.markdown(f"<h4 style='text-align:center'>{mes_meta}</h4>", unsafe_allow_html=True)
+
+            st.plotly_chart(
+                fig,
+                use_container_width=True,
+                key=f"velocimetro_{mes_meta}_{i}"
+            )
+
+            st.markdown(
+                f"""
+                <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
+                    Meta Prevista: <b>{formatar_numero(meta)}</b><br>
+                    Realizado: <b>{formatar_numero(realizado)}</b>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+# =========================
+# BOTÃO VER MAIS
+# =========================
+
+col1, col2 = st.columns(2)
+
+# botão ver mais
+with col1:
+    if st.session_state.meses_visiveis < total_meses:
+        if st.button("🔽 Ver mais meses"):
+            st.session_state.meses_visiveis += 3
+            st.rerun()
+
+# botão ver menos
+with col2:
+    if st.session_state.meses_visiveis > 3:
+        if st.button("🔼 Ver menos meses"):
+            st.session_state.meses_visiveis -= 3
+            st.rerun()
 # =====================================================
 # INDICADORES GERAIS DE META
 # =====================================================
