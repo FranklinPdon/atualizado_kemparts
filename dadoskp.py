@@ -312,14 +312,20 @@ for i in range(0, len(meses_para_mostrar), 3):
             value=percentual,
             number={'suffix': "%", 'font': {'size': 28}},
             gauge={
-                'axis': {'range': [0, 120]},
-                'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
-                'steps': [
-                    {'range': [0, 60], 'color': "#f2f2f2"},
-                    {'range': [60, 90], 'color': "#e6e6e6"},
-                    {'range': [90, 120], 'color': "#d9d9d9"}
-                ]
-            }
+    'shape': "angular",
+    'axis': {'range': [0, 120]},
+    'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
+    'steps': [
+        {'range': [0, 60], 'color': "#f2f2f2"},
+        {'range': [60, 90], 'color': "#e6e6e6"},
+        {'range': [90, 120], 'color': "#d9d9d9"}
+    ],
+    'threshold': {
+        'line': {'color': "red", 'width': 4},
+        'thickness': 0.75,
+        'value': percentual
+    }
+}
         ))
 
         fig.update_layout(height=200, margin=dict(t=20, b=0, l=0, r=0))
