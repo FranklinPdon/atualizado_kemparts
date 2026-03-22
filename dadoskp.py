@@ -11,9 +11,24 @@ import plotly.graph_objects as go
 # =====================================================
 
 st.set_page_config(
-    page_title="Painel de Acompanhamento de Faturamento Diário",
+    page_title="Painel Executivo de Faturamento",
     layout="wide"
 )
+
+# 🎨 CORES PADRÃO (NOVO)
+COR_PRINCIPAL = "#0d6efd"
+COR_DESTAQUE = "#198754"
+COR_ALERTA = "#dc3545"
+COR_FUNDO = "#f8f9fa"
+
+# 🔒 ESCONDER MENU (PROFISSIONAL)
+st.markdown("""
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
 
 # =====================================================
 # CAPA
@@ -21,7 +36,14 @@ st.set_page_config(
 
 st.image("CAPA.png", use_container_width=True)
 
-st.title("Painel de Acompanhamento de Faturamento Diário")
+st.markdown("""
+<h1 style='text-align: center; color: #0d6efd; margin-top:10px;'>
+Painel Executivo de Faturamento
+</h1>
+<p style='text-align: center; font-size:16px; color: gray;'>
+Acompanhamento diário de performance comercial
+</p>
+""", unsafe_allow_html=True)
 
 # =====================================================
 # FUNÇÃO FORMATAÇÃO NUMÉRICA
@@ -204,7 +226,12 @@ df["Mes"] = df["Mes"].map(mapa_meses)
 # FILTROS
 # =====================================================
 
-st.markdown("### Filtros")
+st.divider()
+
+st.markdown("""
+##  Filtros Inteligentes
+Selecione os parâmetros para análise dos dados
+""")
 
 col1,col2,col3,col4 = st.columns(4)
 
@@ -372,7 +399,12 @@ with col2:
 # INDICADORES GERAIS DE META
 # =====================================================
 
-st.markdown("## Indicadores de Faturamento")
+st.divider()
+
+st.markdown("""
+##  Indicadores Executivos
+Visão geral do desempenho de faturamento
+""")
 
 # faturamento realizado
 faturamento_realizado = df_filtrado["Total"].sum()
@@ -431,24 +463,26 @@ else:
 col1, col2, col3, col4 = st.columns(4)
 
 card_style = """
-background:#0d6efd;
+background: linear-gradient(135deg, #0d6efd, #0a58ca);
 padding:22px;
-border-radius:10px;
+border-radius:12px;
 text-align:center;
-box-shadow:0 2px 8px rgba(0,0,0,0.15);
+box-shadow:0 6px 16px rgba(0,0,0,0.25);
+transition: all 0.3s ease;
 """
 
 titulo_style = """
-font-size:14px;
-color:#cfe2ff;
+font-size:13px;
+color:#e9ecef;
 margin-bottom:6px;
 font-weight:500;
+letter-spacing:0.5px;
 """
 
 numero_style = """
-font-size:26px;
+font-size:28px;
 color:white;
-font-weight:600;
+font-weight:bold;
 margin:0;
 """
 
