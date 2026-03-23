@@ -233,51 +233,84 @@ st.markdown("""
 Selecione os parâmetros para análise dos dados
 """)
 
-col1,col2,col3,col4 = st.columns(4)
+# Criamos 5 colunas: a primeira é mais larga para caber o calendário
+col_data, col1, col2, col3, col4 = st.columns([2, 1, 1, 1, 1])
+
+with col_data:
+    # Definindo as datas mínima e máxima que existem na sua planilha
+    data_min = df["DT Emissao"].min().date()
+    data_max = df["DT Emissao"].max().date()
+    
+    # Este é o campo onde você clica e seleciona o período (Início e Fim)
+    periodo = st.date_input(
+        "Período de Emissão (Início e Fim)",
+        value=(data_min, data_max),
+        min_value=data_min,
+        max_value=data_max,
+        format="DD/MM/YYYY"
+    )
 
 with col1:
-    vendedor = st.multiselect(
-        "Vendedor",
-        options=sorted(df["Vendedor 1"].dropna().unique()),
-        placeholder="Selecione"
-    )
-
-with col2:
-    grupo = st.multiselect(
-        "Grupo Produto",
-        options=sorted(df["Nome Grupo"].dropna().unique()),
-        placeholder="Selecione"
-    )
-
-with col3:
-    estado = st.multiselect(
-        "Estado",
-        options=sorted(df["Estado"].dropna().unique()),
-        placeholder="Selecione"
-    )
-
-with col4:
     mes = st.multiselect(
         "Mês",
         options=sorted(df["Mes"].dropna().unique()),
         placeholder="Selecione"
     )
 
+with col2:
+    vendedor = st.multiselect(
+        "Vendedor",
+        options=sorted(df["Vendedor 1"].dropna().unique()),
+        placeholder="Selecione"
+    )
+
+with col3:
+    grupo = st.multiselect(
+        "Grupo Produto",
+        options=sorted(df["Nome Grupo"].dropna().unique()),
+        placeholder="Selecione"
+    )
+
+with col4:
+    estado = st.multiselect(
+        "Estado",
+        options=sorted(df["Estado"].dropna().unique()),
+        placeholder="Selecione"
+    )
+
+
+
+# --- IMPORTANTE: ABAIXO DOS FILTROS, ADICIONE ESTAS LINHAS PARA O FILTRO FUNCIONAR ---
+
+df_filtrado = df.copy()
+
+# Aplica o filtro de data se o usuário selecionou Início e Fim
+if isinstance(periodo, tuple) and len(periodo) == 2:
+    data_inicio, data_fim = periodo
+    df_filtrado = df_filtrado[(df_filtrado["DT Emissao"].dt.date >= data_inicio) & 
+                             (df_filtrado["DT Emissao"].dt.date <= data_fim)]
+
+# (Mantenha o restante dos seus filtros de vendedor, grupo, etc., abaixo daqui)
+
 # =====================================================
-# FILTRO BASE
+# FILTRO BASE (ESSA PARTE CONECTA O FILTRO AOS DADOS)
 # =====================================================
 
 df_filtrado = df.copy()
 
+# 1. Filtro de Data (Calendário)
+if isinstance(periodo, tuple) and len(periodo) == 2:
+    data_inicio, data_fim = periodo
+    df_filtrado = df_filtrado[(df_filtrado["DT Emissao"].dt.date >= data_inicio) & 
+                             (df_filtrado["DT Emissao"].dt.date <= data_fim)]
+
+# 2. Filtros de Cliques (Vendedor, Grupo, etc.)
 if vendedor:
     df_filtrado = df_filtrado[df_filtrado["Vendedor 1"].isin(vendedor)]
-
 if grupo:
     df_filtrado = df_filtrado[df_filtrado["Nome Grupo"].isin(grupo)]
-
 if estado:
     df_filtrado = df_filtrado[df_filtrado["Estado"].isin(estado)]
-
 if mes:
     df_filtrado = df_filtrado[df_filtrado["Mes"].isin(mes)]
 
