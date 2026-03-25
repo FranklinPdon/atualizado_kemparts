@@ -40,6 +40,7 @@ st.markdown("""
 <h1 style='text-align: center; color: #0d6efd; margin-top:10px;'>
 Painel Executivo de Faturamento
 </h1>
+
 <p style='text-align: center; font-size:16px; color: gray;'>
 Acompanhamento diário de performance comercial
 </p>
@@ -199,6 +200,9 @@ fsc = pd.read_excel("BASE_KEMPARTS.xlsx", sheet_name="FSC")
 
 df = pd.concat([fsp, fsc])
 
+#  PADRONIZA NOME DOS CLIENTES (EVITA ERRO NO RANKING)
+df["Nome"] = df["Nome"].astype(str).str.strip().str.upper()
+
 df = df[df["Vendedor 1"] != "KP"]
 
 df["DT Emissao"] = pd.to_datetime(df["DT Emissao"])
@@ -221,6 +225,7 @@ mapa_meses = {
 }
 
 df["Mes"] = df["Mes"].map(mapa_meses)
+
 
 # =====================================================
 # FILTROS
@@ -280,16 +285,6 @@ with col4:
 
 
 
-# --- IMPORTANTE: ABAIXO DOS FILTROS, ADICIONE ESTAS LINHAS PARA O FILTRO FUNCIONAR ---
-
-df_filtrado = df.copy()
-
-# Aplica o filtro de data se o usuário selecionou Início e Fim
-if isinstance(periodo, tuple) and len(periodo) == 2:
-    data_inicio, data_fim = periodo
-    df_filtrado = df_filtrado[(df_filtrado["DT Emissao"].dt.date >= data_inicio) & 
-                             (df_filtrado["DT Emissao"].dt.date <= data_fim)]
-
 # (Mantenha o restante dos seus filtros de vendedor, grupo, etc., abaixo daqui)
 
 # =====================================================
@@ -298,13 +293,15 @@ if isinstance(periodo, tuple) and len(periodo) == 2:
 
 df_filtrado = df.copy()
 
-# 1. Filtro de Data (Calendário)
+# filtro de data
 if isinstance(periodo, tuple) and len(periodo) == 2:
     data_inicio, data_fim = periodo
-    df_filtrado = df_filtrado[(df_filtrado["DT Emissao"].dt.date >= data_inicio) & 
-                             (df_filtrado["DT Emissao"].dt.date <= data_fim)]
+    df_filtrado = df_filtrado[
+        (df_filtrado["DT Emissao"].dt.date >= data_inicio) &
+        (df_filtrado["DT Emissao"].dt.date <= data_fim)
+    ]
 
-# 2. Filtros de Cliques (Vendedor, Grupo, etc.)
+# filtros adicionais
 if vendedor:
     df_filtrado = df_filtrado[df_filtrado["Vendedor 1"].isin(vendedor)]
 if grupo:
@@ -313,7 +310,6 @@ if estado:
     df_filtrado = df_filtrado[df_filtrado["Estado"].isin(estado)]
 if mes:
     df_filtrado = df_filtrado[df_filtrado["Mes"].isin(mes)]
-
 # =====================================================
 # FATURAMENTO
 # =====================================================
