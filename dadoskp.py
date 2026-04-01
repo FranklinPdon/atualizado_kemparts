@@ -255,10 +255,16 @@ with col_data:
         format="DD/MM/YYYY"
     )
 
+# lista fixa de todos os meses
+ordem_meses = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+]
+
 with col1:
     mes = st.multiselect(
         "Mês",
-        options=sorted(df["Mes"].dropna().unique()),
+        options=ordem_meses,
         placeholder="Selecione"
     )
 
@@ -330,100 +336,165 @@ meta_valor = metas_faturamento.get(mes_nome,0)
 
 st.markdown("## Atingimento de Meta por Mês")
 
-meses_meta = pd.date_range(start="2026-01-01", end="2026-12-01", freq="MS")
-
 meses_meta = [
-    mapa_meses[data.strftime("%B")]
-    for data in meses_meta
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
 ]
 
 # =========================
-# CONTROLE DE MESES VISÍVEIS
+# SE USUÁRIO SELECIONAR MÊS
 # =========================
 
-if "meses_visiveis" not in st.session_state:
-    st.session_state.meses_visiveis = 3
+if mes:
 
-# quantidade total
-total_meses = len(meses_meta)
+    mes_selecionado = mes[0]
 
-# meses que vão aparecer
-meses_para_mostrar = meses_meta[:st.session_state.meses_visiveis]
+    meta = metas_faturamento.get(mes_selecionado, 0)
+
+    df_mes = df_filtrado[df_filtrado["Mes"] == mes_selecionado]
+
+    if df_mes.empty:
+        realizado = 0
+    else:
+        realizado = df_mes["Total"].sum()
+
+    percentual = 0
+    if meta > 0:
+        percentual = (realizado / meta) * 100
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=percentual,
+        number={'suffix': "%", 'font': {'size': 40}},
+        gauge={
+            'shape': "angular",
+            'axis': {'range': [0, 120]},
+            'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
+            'steps': [
+                {'range': [0, 60], 'color': "#f2f2f2"},
+                {'range': [60, 90], 'color': "#e6e6e6"},
+                {'range': [90, 120], 'color': "#d9d9d9"}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': percentual
+            }
+        }
+    ))
+
+    fig.update_layout(height=350)
+
+    col_center = st.columns([1,2,1])
+
+    with col_center[1]:
+        st.markdown(f"<h3 style='text-align:center'>{mes_selecionado}</h3>", unsafe_allow_html=True)
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True,
+            key=f"velocimetro_unico_{mes_selecionado}"
+        )
+
+        st.markdown(
+            f"""
+            <div style="text-align:center;border:1px dashed #ccc;padding:10px;font-size:16px">
+                Meta Prevista: <b>{formatar_numero(meta)}</b><br>
+                Realizado: <b>{formatar_numero(realizado)}</b>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # =========================
-# VELOCÍMETROS
+# SE NÃO SELECIONAR MÊS
 # =========================
 
-for i in range(0, len(meses_para_mostrar), 3):
-    cols = st.columns(3)
+else:
 
-    for j, mes_meta in enumerate(meses_para_mostrar[i:i+3]):
+    if "meses_visiveis" not in st.session_state:
+        st.session_state.meses_visiveis = 3
 
-        meta = metas_faturamento.get(mes_meta, 0)
-        realizado = df_filtrado[df_filtrado["Mes"] == mes_meta]["Total"].sum()
-        percentual = (realizado / meta * 100) if meta > 0 else 0
+    total_meses = len(meses_meta)
 
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=percentual,
-            number={'suffix': "%", 'font': {'size': 28}},
-            gauge={
-    'shape': "angular",
-    'axis': {'range': [0, 120]},
-    'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
-    'steps': [
-        {'range': [0, 60], 'color': "#f2f2f2"},
-        {'range': [60, 90], 'color': "#e6e6e6"},
-        {'range': [90, 120], 'color': "#d9d9d9"}
-    ],
-    'threshold': {
-        'line': {'color': "red", 'width': 4},
-        'thickness': 0.75,
-        'value': percentual
-    }
-}
-        ))
+    meses_para_mostrar = meses_meta[:min(st.session_state.meses_visiveis, total_meses)]
 
-        fig.update_layout(height=200, margin=dict(t=20, b=0, l=0, r=0))
+    for i in range(0, len(meses_para_mostrar), 3):
+        cols = st.columns(3)
 
-        with cols[j]:
-            st.markdown(f"<h4 style='text-align:center'>{mes_meta}</h4>", unsafe_allow_html=True)
+        for j, mes_meta in enumerate(meses_para_mostrar[i:i+3]):
 
-            st.plotly_chart(
-                fig,
-                use_container_width=True,
-                key=f"velocimetro_{mes_meta}_{i}"
+            meta = metas_faturamento.get(mes_meta, 0)
+
+            df_mes = df_filtrado[df_filtrado["Mes"] == mes_meta]
+
+            if df_mes.empty:
+                realizado = 0
+            else:
+                realizado = df_mes["Total"].sum()
+
+            percentual = 0
+            if meta > 0:
+                percentual = (realizado / meta) * 100
+
+            fig = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=percentual,
+                number={'suffix': "%", 'font': {'size': 32}},
+                gauge={
+                    'shape': "angular",
+                    'axis': {'range': [0, 120]},
+                    'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
+                    'steps': [
+                        {'range': [0, 60], 'color': "#f2f2f2"},
+                        {'range': [60, 90], 'color': "#e6e6e6"},
+                        {'range': [90, 120], 'color': "#d9d9d9"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': percentual
+                    }
+                }
+            ))
+
+            fig.update_layout(
+                height=280,
+                margin=dict(t=30, b=20, l=20, r=20)
             )
 
-            st.markdown(
-                f"""
-                <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
-                    Meta Prevista: <b>{formatar_numero(meta)}</b><br>
-                    Realizado: <b>{formatar_numero(realizado)}</b>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            with cols[j]:
+                st.markdown(f"<h4 style='text-align:center'>{mes_meta}</h4>", unsafe_allow_html=True)
 
-# =========================
-# BOTÃO VER MAIS
-# =========================
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True,
+                    key=f"velocimetro_{mes_meta}_{i}_{j}"
+                )
 
-col1, col2 = st.columns(2)
+                st.markdown(
+                    f"""
+                    <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
+                        Meta Prevista: <b>{formatar_numero(meta)}</b><br>
+                        Realizado: <b>{formatar_numero(realizado)}</b>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-# botão ver mais
-with col1:
-    if st.session_state.meses_visiveis < total_meses:
-        if st.button("🔽 Ver mais meses"):
-            st.session_state.meses_visiveis += 3
-            st.rerun()
+    col1, col2 = st.columns(2)
 
-# botão ver menos
-with col2:
-    if st.session_state.meses_visiveis > 3:
-        if st.button("🔼 Ver menos meses"):
-            st.session_state.meses_visiveis -= 3
-            st.rerun()
+    with col1:
+        if st.session_state.meses_visiveis < total_meses:
+            if st.button("🔽 Ver mais meses"):
+                st.session_state.meses_visiveis += 3
+                st.rerun()
+
+    with col2:
+        if st.session_state.meses_visiveis > 3:
+            if st.button("🔼 Ver menos meses"):
+                st.session_state.meses_visiveis -= 3
+                st.rerun()
 # =====================================================
 # INDICADORES GERAIS DE META
 # =====================================================
