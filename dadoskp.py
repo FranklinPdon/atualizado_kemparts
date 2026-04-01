@@ -200,6 +200,27 @@ fsc = pd.read_excel("BASE_KEMPARTS.xlsx", sheet_name="FSC")
 
 df = pd.concat([fsp, fsc])
 
+# =====================================================
+# REMOVER NATUREZAS QUE NÃO SÃO FATURAMENTO
+# =====================================================
+
+# padroniza texto
+df["Natureza"] = df["Natureza"].astype(str).str.strip().str.upper()
+
+# lista de exclusão
+naturezas_excluir = [
+    "REMESSA DE AMOSTRA GRATIS",
+    "REMESSA PARA DEPOSITO FECHADO OU ARMAZEM GERAL",
+    "REMESSA  MERCADORIA P/ CONTA E ORDEM TERC. VENDA ORDEM",
+    "REMESSA DE MERC. POR CONTA E ORDEM TERC. VENDA A ORDEM",
+    "OUTRA SAIDA DE MERC. OU PREST.SERVICO NAO ESPECIFICADO",
+    "RETORNO DE BEM RECEBIDO POR CONTA CONTRATO DE COMODATO",
+    "EXPORTACAO DE MERCADORIAS RECEB. FIM ESPEC. EXPORTACAO"
+]
+
+# remove da base
+df = df[~df["Natureza"].isin(naturezas_excluir)]
+
 #  PADRONIZA NOME DOS CLIENTES (EVITA ERRO NO RANKING)
 df["Nome"] = df["Nome"].astype(str).str.strip().str.upper()
 
