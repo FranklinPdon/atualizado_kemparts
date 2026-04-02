@@ -471,7 +471,7 @@ else:
             st.session_state.mostrar_2_semestre = False
             st.rerun()
 
- # =====================================================
+# =====================================================
 # INDICADORES GERAIS DE META
 # =====================================================
 
@@ -666,7 +666,7 @@ st.plotly_chart(fig_faturamento, use_container_width=True)
 # =====================================================
 
 st.divider()
-st.markdown("## Desempenho de Exportação")
+st.markdown("##Exportação")
 
 # Filtramos apenas as linhas que são de exportação na base filtrada
 NATUREZA_EXPORTACAO = "EXPORTACAO DE MERCADORIAS RECEB. FIM ESPEC. EXPORTACAO"
