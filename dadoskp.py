@@ -419,32 +419,79 @@ def criar_progresso_circular(meta, realizado, nome_mes):
     )
     return fig
 
-# Função para renderizar os meses em colunas
+@st.dialog("Resumo Mensal Detalhado")
+def exibir_resumo_detalhado(mes_nome, df_mes, meta_valor):
+    # Cálculos para o resumo
+    faturado = df_mes["Total"].sum()
+    perc = (faturado / meta_valor * 100) if meta_valor > 0 else 0
+    
+    # Cálculo da provisão
+    provisao = max(meta_valor - faturado, 0)
+    
+    # Identificando os destaques do mês
+    vendedor_top = df_mes.groupby("Vendedor 1")["Total"].sum().idxmax() if not df_mes.empty else "-"
+    produto_top_valor = df_mes.groupby("Descricao")["Total"].sum().idxmax() if not df_mes.empty else "-"
+    
+    # NOVO: Identificando o produto com maior volume em KG
+    if not df_mes.empty:
+        top_produto_kg_nome = df_mes.groupby("Descricao")["Quantidade"].sum().idxmax()
+        top_produto_kg_valor = df_mes.groupby("Descricao")["Quantidade"].sum().max()
+        texto_produto_kg = f"{top_produto_kg_nome} ({formatar_numero(top_produto_kg_valor)} KG)"
+    else:
+        texto_produto_kg = "-"
+
+    estado_top = df_mes.groupby("Estado")["Total"].sum().idxmax() if not df_mes.empty else "-"
+
+    st.markdown(f"### 📅 Relatório de {mes_nome}")
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("Meta Planejada", formatar_numero(meta_valor))
+        st.metric("Faturado Real", formatar_numero(faturado))
+    with c2:
+        st.metric("Atingimento", f"{perc:.1f}%")
+        st.metric("Provisão para a Meta", formatar_numero(provisao))
+
+    st.divider()
+    st.markdown("**🏆 Destaques do Mês:**")
+    st.info(f"👤 **Vendedor que mais vendeu:** {vendedor_top}")
+    st.success(f"💰 **Produto destaque em Valor:** {produto_top_valor}")
+    # Nova linha abaixo:
+    st.success(f"⚖️ **Produto destaque em KG:** {texto_produto_kg}")
+    st.warning(f"📍 **Estado que mais comprou:** {estado_top}")
+    
+    if st.button("Fechar", use_container_width=True):
+        st.rerun()
+
 def exibir_meses_grid(lista_meses):
-    # Se tiver muitos meses, faz 6 colunas, se tiver poucos (filtro), ajusta a largura
     num_cols = min(len(lista_meses), 6) if len(lista_meses) > 0 else 1
     cols = st.columns(num_cols)
     
     for i, m in enumerate(lista_meses):
         meta_m = metas_faturamento.get(m, 0)
-        realizado_m = df_filtrado[df_filtrado["Mes"] == m]["Total"].sum()
+        # Filtramos os dados específicos deste mês para o resumo do Popup
+        df_mes = df_filtrado[df_filtrado["Mes"] == m]
+        realizado_m = df_mes["Total"].sum()
         
-        # O operador % garante que se houver mais de 6 meses no filtro, 
-        # ele distribua corretamente nas colunas disponíveis
         with cols[i % num_cols]:
             st.markdown(f"<h3 style='text-align:center;'>{m}</h3>", unsafe_allow_html=True)
             st.plotly_chart(criar_progresso_circular(meta_m, realizado_m, m), use_container_width=True, key=f"circ_{m}")
+            
+            # 1. Botão do Popup
+            if st.button(f"Ver Detalhes {m}", key=f"btn_resumo_{m}", use_container_width=True):
+                exibir_resumo_detalhado(m, df_mes, meta_m)
+
+            # 2. Exibição da Meta e Realizado abaixo do botão
             st.markdown(
                 f"""
-                <div style="text-align:center; line-height:1.4; margin-top:-20px; margin-bottom:30px;">
-                    <span style="font-size:16px; opacity:0.8;">Meta</span><br>
-                    <b style="font-size:22px;">{formatar_numero(meta_m)}</b><br>
-                    <span style="font-size:16px; opacity:0.8; margin-top:8px; display:inline-block;">Realizado</span><br>
-                    <b style="font-size:22px;">{formatar_numero(realizado_m)}</b>
+                <div style="text-align:center; line-height:1.4; margin-top:10px; margin-bottom:30px;">
+                    <span style="font-size:14px; opacity:0.8;">Meta</span><br>
+                    <b style="font-size:18px;">{formatar_numero(meta_m)}</b><br>
+                    <span style="font-size:14px; opacity:0.8; margin-top:8px; display:inline-block;">Realizado</span><br>
+                    <b style="font-size:18px;">{formatar_numero(realizado_m)}</b>
                 </div>
                 """, unsafe_allow_html=True
             )
-
 # --- LÓGICA DE EXIBIÇÃO ---
 
 # Variável 'mes' vem do seu multiselect lá em cima
