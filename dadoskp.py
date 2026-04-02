@@ -6,6 +6,11 @@ import plotly.express as px
 
 import plotly.graph_objects as go
 
+meses_ordem = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+]
+
 # =====================================================
 # CONFIGURAÇÃO DA PÁGINA
 # =====================================================
@@ -200,31 +205,55 @@ fsc = pd.read_excel("BASE_KEMPARTS.xlsx", sheet_name="FSC")
 
 df = pd.concat([fsp, fsc])
 
-# =====================================================
-# REMOVER NATUREZAS QUE NÃO SÃO FATURAMENTO
-# =====================================================
-
-# padroniza texto
-df["Natureza"] = df["Natureza"].astype(str).str.strip().str.upper()
-
-# lista de exclusão
-naturezas_excluir = [
-    "REMESSA DE AMOSTRA GRATIS",
-    "REMESSA PARA DEPOSITO FECHADO OU ARMAZEM GERAL",
-    "REMESSA  MERCADORIA P/ CONTA E ORDEM TERC. VENDA ORDEM",
-    "REMESSA DE MERC. POR CONTA E ORDEM TERC. VENDA A ORDEM",
-    "OUTRA SAIDA DE MERC. OU PREST.SERVICO NAO ESPECIFICADO",
-    "RETORNO DE BEM RECEBIDO POR CONTA CONTRATO DE COMODATO"
-    
-]
-
-# remove da base
-df = df[~df["Natureza"].isin(naturezas_excluir)]
-
 #  PADRONIZA NOME DOS CLIENTES (EVITA ERRO NO RANKING)
 df["Nome"] = df["Nome"].astype(str).str.strip().str.upper()
 
-df = df[df["Vendedor 1"] != "KP"]
+df["Natureza"] = df["Natureza"].str.strip()
+df["Descricao"] = df["Descricao"].str.strip()
+df["Vendedor 1"] = df["Vendedor 1"].str.strip()
+
+
+# =====================================================
+# FILTRAGEM BLINDADA (PARA BATER OS 4.872 MM)
+# =====================================================
+
+# 1. Limpeza profunda: remove espaços duplos e caracteres estranhos
+def limpar_texto(txt):
+    txt = str(txt).upper().strip()
+    return " ".join(txt.split()) # Remove espaços duplos no meio da frase
+
+df["Natureza"] = df["Natureza"].apply(limpar_texto)
+df["Descricao"] = df["Descricao"].apply(limpar_texto)
+df["Vendedor 1"] = df["Vendedor 1"].apply(limpar_texto)
+
+# 2. Lista de Termos Proibidos (Filtro por palavra-chave parcial)
+# Se a natureza CONTIVER qualquer um desses termos, ela será excluída.
+termos_proibidos = [
+    "AMOSTRA GRATIS",
+    "DEPOSITO FECHADO",
+    "CONTA E ORDEM TERC", # Pega a linha dos 95k mesmo com erro de caractere
+    "NAO ESPECIFICADO",    # Pega "OUTRA SAIDA... NAO ESPECIFICADO"
+    "COMODATO",
+    "CONSERTO",
+    "BONIFICACAO",
+    "BRINDE"
+]
+
+# Aplicamos a exclusão por termo parcial (Muito mais seguro para o Protheus)
+for termo in termos_proibidos:
+    df = df[~df["Natureza"].str.contains(termo, na=False)]
+
+# 3. Regras Específicas
+df = df[df["Descricao"] != "COMPLEMENTO DE ICMS"]
+
+# Regra do Vendedor KP (Mantém apenas Exportação)
+# Usamos 'contains' aqui também para garantir que pegue a Exportação
+N_EXP = "EXPORTACAO" 
+
+df = df[
+    (df["Vendedor 1"] != "KP") | 
+    ((df["Vendedor 1"] == "KP") & (df["Natureza"].str.contains(N_EXP, na=False)))
+]
 
 df["DT Emissao"] = pd.to_datetime(df["DT Emissao"])
 
@@ -276,16 +305,10 @@ with col_data:
         format="DD/MM/YYYY"
     )
 
-# lista fixa de todos os meses
-ordem_meses = [
-    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
-]
-
 with col1:
     mes = st.multiselect(
         "Mês",
-        options=ordem_meses,
+        options=meses_ordem,
         placeholder="Selecione"
     )
 
@@ -337,6 +360,12 @@ if estado:
     df_filtrado = df_filtrado[df_filtrado["Estado"].isin(estado)]
 if mes:
     df_filtrado = df_filtrado[df_filtrado["Mes"].isin(mes)]
+
+# 👇 FORA do if mes (IMPORTANTE)
+if mes and len(mes) == 1:
+    mes_nome = mes[0]
+else:
+    mes_nome = None
 # =====================================================
 # FATURAMENTO
 # =====================================================
@@ -351,172 +380,98 @@ else:
 
 meta_valor = metas_faturamento.get(mes_nome,0)
 
+
 # =====================================================
-# VELOCÍMETROS META
+# INDICADORES DE PROGRESSO CIRCULAR - DINÂMICO
 # =====================================================
 
 st.markdown("## Atingimento de Meta por Mês")
 
-meses_meta = [
-    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
-]
+def criar_progresso_circular(meta, realizado, nome_mes):
+    percentual = (realizado / meta * 100) if meta > 0 else 0
+    progresso_visual = min(percentual, 100)
+    restante_visual = 100 - progresso_visual
 
-# =========================
-# SE USUÁRIO SELECIONAR MÊS
-# =========================
+    fig = go.Figure()
 
-if mes:
-
-    mes_selecionado = mes[0]
-
-    meta = metas_faturamento.get(mes_selecionado, 0)
-
-    df_mes = df_filtrado[df_filtrado["Mes"] == mes_selecionado]
-
-    if df_mes.empty:
-        realizado = 0
-    else:
-        realizado = df_mes["Total"].sum()
-
-    percentual = 0
-    if meta > 0:
-        percentual = (realizado / meta) * 100
-
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=percentual,
-        number={'suffix': "%", 'font': {'size': 40}},
-        gauge={
-            'shape': "angular",
-            'axis': {'range': [0, 120]},
-            'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
-            'steps': [
-                {'range': [0, 60], 'color': "#f2f2f2"},
-                {'range': [60, 90], 'color': "#e6e6e6"},
-                {'range': [90, 120], 'color': "#d9d9d9"}
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': percentual
-            }
-        }
+    fig.add_trace(go.Pie(
+        values=[progresso_visual, restante_visual],
+        hole=0.75,
+        marker=dict(colors=['#bc16a4', '#e0e0e0']), 
+        sort=False,
+        direction='clockwise',
+        showlegend=False,
+        hoverinfo='skip',
+        textinfo='none'
     ))
 
-    fig.update_layout(height=350)
+    # Número grande e centralizado (cor adaptativa ao fundo)
+    fig.add_annotation(
+        text=f"<b style='font-size:35px;'>{percentual:.0f}%</b>",
+        x=0.5, y=0.5, showarrow=False
+    )
 
-    col_center = st.columns([1,2,1])
+    fig.update_layout(
+        height=250, # Aumentado para melhor visualização
+        margin=dict(t=10, b=10, l=0, r=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+    )
+    return fig
 
-    with col_center[1]:
-        st.markdown(f"<h3 style='text-align:center'>{mes_selecionado}</h3>", unsafe_allow_html=True)
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True,
-            key=f"velocimetro_unico_{mes_selecionado}"
-        )
-
-        st.markdown(
-            f"""
-            <div style="text-align:center;border:1px dashed #ccc;padding:10px;font-size:16px">
-                Meta Prevista: <b>{formatar_numero(meta)}</b><br>
-                Realizado: <b>{formatar_numero(realizado)}</b>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-# =========================
-# SE NÃO SELECIONAR MÊS
-# =========================
-
-else:
-
-    if "meses_visiveis" not in st.session_state:
-        st.session_state.meses_visiveis = 3
-
-    total_meses = len(meses_meta)
-
-    meses_para_mostrar = meses_meta[:min(st.session_state.meses_visiveis, total_meses)]
-
-    for i in range(0, len(meses_para_mostrar), 3):
-        cols = st.columns(3)
-
-        for j, mes_meta in enumerate(meses_para_mostrar[i:i+3]):
-
-            meta = metas_faturamento.get(mes_meta, 0)
-
-            df_mes = df_filtrado[df_filtrado["Mes"] == mes_meta]
-
-            if df_mes.empty:
-                realizado = 0
-            else:
-                realizado = df_mes["Total"].sum()
-
-            percentual = 0
-            if meta > 0:
-                percentual = (realizado / meta) * 100
-
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=percentual,
-                number={'suffix': "%", 'font': {'size': 32}},
-                gauge={
-                    'shape': "angular",
-                    'axis': {'range': [0, 120]},
-                    'bar': {'color': "#2ca02c" if percentual >= 100 else "#ff7f0e"},
-                    'steps': [
-                        {'range': [0, 60], 'color': "#f2f2f2"},
-                        {'range': [60, 90], 'color': "#e6e6e6"},
-                        {'range': [90, 120], 'color': "#d9d9d9"}
-                    ],
-                    'threshold': {
-                        'line': {'color': "red", 'width': 4},
-                        'thickness': 0.75,
-                        'value': percentual
-                    }
-                }
-            ))
-
-            fig.update_layout(
-                height=280,
-                margin=dict(t=30, b=20, l=20, r=20)
+# Função para renderizar os meses em colunas
+def exibir_meses_grid(lista_meses):
+    # Se tiver muitos meses, faz 6 colunas, se tiver poucos (filtro), ajusta a largura
+    num_cols = min(len(lista_meses), 6) if len(lista_meses) > 0 else 1
+    cols = st.columns(num_cols)
+    
+    for i, m in enumerate(lista_meses):
+        meta_m = metas_faturamento.get(m, 0)
+        realizado_m = df_filtrado[df_filtrado["Mes"] == m]["Total"].sum()
+        
+        # O operador % garante que se houver mais de 6 meses no filtro, 
+        # ele distribua corretamente nas colunas disponíveis
+        with cols[i % num_cols]:
+            st.markdown(f"<h3 style='text-align:center;'>{m}</h3>", unsafe_allow_html=True)
+            st.plotly_chart(criar_progresso_circular(meta_m, realizado_m, m), use_container_width=True, key=f"circ_{m}")
+            st.markdown(
+                f"""
+                <div style="text-align:center; line-height:1.4; margin-top:-20px; margin-bottom:30px;">
+                    <span style="font-size:16px; opacity:0.8;">Meta</span><br>
+                    <b style="font-size:22px;">{formatar_numero(meta_m)}</b><br>
+                    <span style="font-size:16px; opacity:0.8; margin-top:8px; display:inline-block;">Realizado</span><br>
+                    <b style="font-size:22px;">{formatar_numero(realizado_m)}</b>
+                </div>
+                """, unsafe_allow_html=True
             )
 
-            with cols[j]:
-                st.markdown(f"<h4 style='text-align:center'>{mes_meta}</h4>", unsafe_allow_html=True)
+# --- LÓGICA DE EXIBIÇÃO ---
 
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True,
-                    key=f"velocimetro_{mes_meta}_{i}_{j}"
-                )
+# Variável 'mes' vem do seu multiselect lá em cima
+if mes:
+    # Se o usuário selecionou meses no filtro, mostra APENAS eles
+    exibir_meses_grid(mes)
+else:
+    # Caso contrário, mostra o comportamento padrão por semestres
+    if "mostrar_2_semestre" not in st.session_state:
+        st.session_state.mostrar_2_semestre = False
 
-                st.markdown(
-                    f"""
-                    <div style="text-align:center;border:1px dashed #ccc;padding:8px;font-size:14px">
-                        Meta Prevista: <b>{formatar_numero(meta)}</b><br>
-                        Realizado: <b>{formatar_numero(realizado)}</b>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+    st.markdown("### 1º Semestre")
+    exibir_meses_grid(meses_ordem[0:6])
 
-    col1, col2 = st.columns(2)
+    if not st.session_state.mostrar_2_semestre:
+        if st.button("Visualizar 2º Semestre"):
+            st.session_state.mostrar_2_semestre = True
+            st.rerun()
+    else:
+        st.markdown("### 2º Semestre")
+        exibir_meses_grid(meses_ordem[6:12])
+        
+        if st.button("Ocultar 2º Semestre"):
+            st.session_state.mostrar_2_semestre = False
+            st.rerun()
 
-    with col1:
-        if st.session_state.meses_visiveis < total_meses:
-            if st.button("🔽 Ver mais meses"):
-                st.session_state.meses_visiveis += 3
-                st.rerun()
-
-    with col2:
-        if st.session_state.meses_visiveis > 3:
-            if st.button("🔼 Ver menos meses"):
-                st.session_state.meses_visiveis -= 3
-                st.rerun()
-# =====================================================
+ # =====================================================
 # INDICADORES GERAIS DE META
 # =====================================================
 
@@ -637,7 +592,7 @@ with col4:
         <div style="{titulo_style}">Dias a Faturar</div>
         <div style="{numero_style}">{dias_uteis_restantes}</div>
     </div>
-    """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)   
 
 # =====================================================
 # FATURAMENTO DIÁRIO
@@ -704,7 +659,66 @@ fig_faturamento.update_layout(
     showlegend=True
 )
 
-st.plotly_chart(fig_faturamento, use_container_width=True)
+st.plotly_chart(fig_faturamento, use_container_width=True)        
+
+# =====================================================
+# INDICADORES ESPECÍFICOS DE EXPORTAÇÃO
+# =====================================================
+
+st.divider()
+st.markdown("## Desempenho de Exportação")
+
+# Filtramos apenas as linhas que são de exportação na base filtrada
+NATUREZA_EXPORTACAO = "EXPORTACAO DE MERCADORIAS RECEB. FIM ESPEC. EXPORTACAO"
+df_exportacao = df_filtrado[df_filtrado["Natureza"] == NATUREZA_EXPORTACAO]
+
+# Inicializa o estado do botão de exportação se não existir
+if "mostrar_2_semestre_export" not in st.session_state:
+    st.session_state.mostrar_2_semestre_export = False
+
+def exibir_exportacao_grid(lista_meses):
+    cols = st.columns(6)
+    for i, m in enumerate(lista_meses):
+        faturado_export = df_exportacao[df_exportacao["Mes"] == m]["Total"].sum()
+        
+        with cols[i]:
+            st.markdown(f"<p style='text-align:center; font-weight:bold; color:#0d6efd; margin-bottom:5px; font-size:16px;'>{m}</p>", unsafe_allow_html=True)
+            
+            # Card estilizado com Números Maiores (24px)
+            st.markdown(
+                f"""
+                <div style="background:rgba(13, 110, 253, 0.05); padding:15px; border-radius:10px; text-align:center; border: 1px solid rgba(13, 110, 253, 0.3); min-height:100px; display: flex; flex-direction: column; justify-content: center;">
+                    <span style="font-size:13px; opacity:0.7;">Faturado Exportação</span><br>
+                    <b style="font-size:24px; color:#bc16a4; display:block; margin-top:5px;">{formatar_numero(faturado_export)}</b>
+                </div>
+                """, unsafe_allow_html=True
+            )
+
+# --- LÓGICA DE EXIBIÇÃO EXPORTAÇÃO ---
+
+if mes:
+    # Se houver filtro de mês no topo, mostra apenas os selecionados
+    exibir_exportacao_grid(mes)
+else:
+    # 1º Semestre Exportação
+    st.markdown("### 1º Semestre - Exportação")
+    exibir_exportacao_grid(meses_ordem[0:6])
+
+    # Botão para o 2º Semestre de Exportação
+    if not st.session_state.mostrar_2_semestre_export:
+        if st.button("Visualizar 2º Semestre Exportação", key="btn_exp_v"):
+            st.session_state.mostrar_2_semestre_export = True
+            st.rerun()
+    else:
+        # 2º Semestre Exportação
+        st.markdown("### 2º Semestre - Exportação")
+        exibir_exportacao_grid(meses_ordem[6:12])
+        
+        if st.button("Ocultar 2º Semestre Exportação", key="btn_exp_o"):
+            st.session_state.mostrar_2_semestre_export = False
+            st.rerun()
+
+
 # =====================================================
 # KG
 # =====================================================
@@ -826,34 +840,38 @@ fig.update_layout(
 st.plotly_chart(fig,use_container_width=True)
 
 # =====================================================
-# TOP PRODUTOS
+# TOP PRODUTOS (MAIOR NO TOPO)
 # =====================================================
 
 st.markdown("## Faturamento por Produto")
 
 top_produtos = (
-df_filtrado
-.groupby("Descricao")["Total"]
-.sum()
-.sort_values(ascending=False)
-.head(9)
-.reset_index()
+    df_filtrado
+    .groupby("Descricao")["Total"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(9)
+    .reset_index()
 )
 
 fig_produtos = px.bar(
-top_produtos,
-x="Total",
-y="Descricao",
-orientation="h",
-text=top_produtos["Total"].apply(formatar_numero)
+    top_produtos,
+    x="Total",
+    y="Descricao",
+    orientation="h",
+    text=top_produtos["Total"].apply(formatar_numero)
 )
+
+# INVERTE O EIXO PARA O MAIOR FICAR EM CIMA
+fig_produtos.update_yaxes(autorange="reversed")
 
 fig_produtos.update_layout(height=400)
 
-st.plotly_chart(fig_produtos,use_container_width=True)
+st.plotly_chart(fig_produtos, use_container_width=True)
+
 
 # =====================================================
-# VOLUME POR PRODUTO
+# VOLUME POR PRODUTO (KG) - ORDENADO (MAIOR NO TOPO)
 # =====================================================
 
 st.markdown("## Volume por Produto (KG)")
@@ -862,7 +880,7 @@ top_produtos_kg = (
     df_filtrado
     .groupby("Descricao")["Quantidade"]
     .sum()
-    .sort_values(ascending=False)
+    .sort_values(ascending=False) # Mantemos a ordenação do maior para o menor
     .head(9)
     .reset_index()
 )
@@ -875,9 +893,12 @@ fig_produtos_kg = px.bar(
     text=top_produtos_kg["Quantidade"].apply(formatar_numero)
 )
 
+# ESTA É A LINHA QUE VOCÊ PRECISA ADICIONAR:
+fig_produtos_kg.update_yaxes(autorange="reversed")
+
 fig_produtos_kg.update_layout(height=400)
 
-st.plotly_chart(fig_produtos_kg,use_container_width=True)
+st.plotly_chart(fig_produtos_kg, use_container_width=True)
 
 # =====================================================
 # RANKING VENDEDORES (REALIZADO VS META)
@@ -1001,34 +1022,37 @@ st.plotly_chart(fig_volume,use_container_width=True)
 
 
 # =====================================================
-# TOP CLIENTES
+# PRINCIPAIS CLIENTES (MAIOR NO TOPO)
 # =====================================================
 
 st.markdown("## Principais Clientes")
 
 ranking_clientes = (
-df_filtrado
-.groupby("Nome")["Total"]
-.sum()
-.sort_values(ascending=False)
-.head(9)
-.reset_index()
+    df_filtrado
+    .groupby("Nome")["Total"]
+    .sum()
+    .sort_values(ascending=False)
+    .head(9)
+    .reset_index()
 )
 
 fig_clientes = px.bar(
-ranking_clientes,
-x="Total",
-y="Nome",
-orientation="h",
-text=ranking_clientes["Total"].apply(formatar_numero)
+    ranking_clientes,
+    x="Total",
+    y="Nome",
+    orientation="h",
+    text=ranking_clientes["Total"].apply(formatar_numero)
 )
+
+# INVERTE O EIXO PARA O MAIOR FICAR NO TOPO
+fig_clientes.update_yaxes(autorange="reversed")
 
 fig_clientes.update_layout(height=400)
 
-st.plotly_chart(fig_clientes,use_container_width=True)
+st.plotly_chart(fig_clientes, use_container_width=True)
 
 # =====================================================
-# VOLUME POR CLIENTE
+# VOLUME POR CLIENTE (KG) - MAIOR NO TOPO
 # =====================================================
 
 st.markdown("## Volume por Cliente (KG)")
@@ -1050,9 +1074,12 @@ fig_clientes_kg = px.bar(
     text=clientes_kg["Quantidade"].apply(formatar_numero)
 )
 
+# INVERTE O EIXO PARA O MAIOR FICAR NO TOPO
+fig_clientes_kg.update_yaxes(autorange="reversed")
+
 fig_clientes_kg.update_layout(height=400)
 
-st.plotly_chart(fig_clientes_kg,use_container_width=True)
+st.plotly_chart(fig_clientes_kg, use_container_width=True)
 
 # =====================================================
 # FATURAMENTO POR ESTADO
