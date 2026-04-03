@@ -421,48 +421,44 @@ def criar_progresso_circular(meta, realizado, nome_mes):
 
 @st.dialog("Resumo Mensal Detalhado")
 def exibir_resumo_detalhado(mes_nome, df_mes, meta_valor):
-    # 1. Cálculos de Faturamento e Meta
+    def formatar_k_mm(valor):
+        if valor >= 1_000_000: return f"R$ {valor / 1_000_000:.2f} MM"
+        elif valor >= 1_000: return f"R$ {valor / 1_000:.1f} K"
+        return f"R$ {valor:.2f}"
+
     faturado = df_mes["Total"].sum()
     perc = (faturado / meta_valor * 100) if meta_valor > 0 else 0
     provisao = max(meta_valor - faturado, 0)
     
-    # 2. Identificação dos Destaques
     if not df_mes.empty:
-        # Vendedor e Cliente (por Valor)
-        vendedor_top = df_mes.groupby("Vendedor 1")["Total"].sum().idxmax()
-        cliente_top = df_mes.groupby("Nome")["Total"].sum().idxmax() # NOVO: Cliente que mais comprou
-        
-        # Produto por Valor
-        produto_top_valor = df_mes.groupby("Descricao")["Total"].sum().idxmax()
-        
-        # Produto por Volume (KG)
-        top_produto_kg_nome = df_mes.groupby("Descricao")["Quantidade"].sum().idxmax()
-        top_produto_kg_valor = df_mes.groupby("Descricao")["Quantidade"].sum().max()
-        texto_produto_kg = f"{top_produto_kg_nome} ({formatar_numero(top_produto_kg_valor)} KG)"
-        
-        estado_top = df_mes.groupby("Estado")["Total"].sum().idxmax()
+        v_top_n = df_mes.groupby("Vendedor 1")["Total"].sum().idxmax()
+        v_top_v = df_mes.groupby("Vendedor 1")["Total"].sum().max()
+        c_top_n = df_mes.groupby("Nome")["Total"].sum().idxmax()
+        c_top_v = df_mes.groupby("Nome")["Total"].sum().max()
+        p_val_n = df_mes.groupby("Descricao")["Total"].sum().idxmax()
+        p_val_v = df_mes.groupby("Descricao")["Total"].sum().max()
+        p_kg_n = df_mes.groupby("Descricao")["Quantidade"].sum().idxmax()
+        p_kg_v = df_mes.groupby("Descricao")["Quantidade"].sum().max()
+        e_top_n = df_mes.groupby("Estado")["Total"].sum().idxmax()
+        e_top_v = df_mes.groupby("Estado")["Total"].sum().max()
     else:
-        vendedor_top = cliente_top = produto_top_valor = texto_produto_kg = estado_top = "-"
+        v_top_n = c_top_n = p_val_n = p_kg_n = e_top_n = "-"; v_top_v = c_top_v = p_val_v = p_kg_v = e_top_v = 0
 
-    # 3. Interface Visual do Popup
-    st.markdown(f"### 📅 Relatório de {mes_nome}")
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric("Meta Planejada", formatar_numero(meta_valor))
-        st.metric("Faturado Real", formatar_numero(faturado))
-    with c2:
+    st.markdown(f"###  Resumo de {mes_nome}")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Meta Planejada", formatar_k_mm(meta_valor))
+        st.metric("Faturado Real", formatar_k_mm(faturado))
+    with col_b:
         st.metric("Atingimento", f"{perc:.1f}%")
-        st.metric("Provisão para a Meta", formatar_numero(provisao))
+        st.metric("Provisão para a Meta", formatar_k_mm(provisao))
 
     st.divider()
-    st.markdown("**🏆 Destaques do Mês:**")
-    
-    st.info(f"👤 **Vendedor destaque:** {vendedor_top}")
-    st.info(f"🏢 **Cliente destaque:** {cliente_top}") # EXIBIÇÃO DO CLIENTE
-    st.success(f"💰 **Produto destaque (Valor):** {produto_top_valor}")
-    st.success(f"⚖️ **Produto destaque (Volume):** {texto_produto_kg}")
-    st.warning(f"📍 **Estado que mais comprou:** {estado_top}")
+    st.info(f" **VENDEDOR DESTAQUE:** {v_top_n} — *({formatar_k_mm(v_top_v)})*")
+    st.info(f" **CLIENTE DESTAQUE:** {c_top_n} — *({formatar_k_mm(c_top_v)})*")
+    st.success(f" **PRODUTO DESTAQUE (VALOR):** {p_val_n} — *({formatar_k_mm(p_val_v)})*")
+    st.success(f" **PRODUTO DESTAQUE (KG):** {p_kg_n} — *({formatar_numero(p_kg_v)} KG)*")
+    st.warning(f" **ESTADO QUE MAIS COMPROU:** {e_top_n} — *({formatar_k_mm(e_top_v)})*")
     
     if st.button("Fechar", use_container_width=True):
         st.rerun()
