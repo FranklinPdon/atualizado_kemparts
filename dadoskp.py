@@ -6,6 +6,12 @@ import plotly.express as px
 
 import plotly.graph_objects as go
 
+
+# BOTÃO DE ATUALIZAÇÃO
+if st.button("🔄 Atualizar dados"):
+    st.cache_data.clear()
+    st.rerun()
+
 meses_ordem = [
     "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
     "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
@@ -200,18 +206,22 @@ metas_kg = {
 # CARREGAR PLANILHA
 # =====================================================
 
-fsp = pd.read_excel("BASE_KEMPARTS.xlsx", sheet_name="FSP")
-fsc = pd.read_excel("BASE_KEMPARTS.xlsx", sheet_name="FSC")
+@st.cache_data(ttl=60)
+def carregar_dados():
+    caminho = "BASE_KEMPARTS.xlsx"  # arquivo dentro da pasta do projeto
 
-df = pd.concat([fsp, fsc])
+    fsp = pd.read_excel(caminho, sheet_name="FSP")
+    fsc = pd.read_excel(caminho, sheet_name="FSC")
 
-#  PADRONIZA NOME DOS CLIENTES (EVITA ERRO NO RANKING)
+    return pd.concat([fsp, fsc])
+
+df = carregar_dados()
+
+# PADRONIZAÇÃO
 df["Nome"] = df["Nome"].astype(str).str.strip().str.upper()
-
-df["Natureza"] = df["Natureza"].str.strip()
-df["Descricao"] = df["Descricao"].str.strip()
-df["Vendedor 1"] = df["Vendedor 1"].str.strip()
-
+df["Natureza"] = df["Natureza"].astype(str).str.strip()
+df["Descricao"] = df["Descricao"].astype(str).str.strip()
+df["Vendedor 1"] = df["Vendedor 1"].astype(str).str.strip()
 
 # =====================================================
 # FILTRAGEM BLINDADA (PARA BATER OS 4.872 MM)
